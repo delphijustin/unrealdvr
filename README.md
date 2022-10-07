@@ -25,3 +25,4 @@ For installing please follow those steps in the correct order:
 * If you plan on having the computer change then press Y otherwise N
 * If you pressed Y then enter the COM Port used by the arduino.
 * When asked to enter the full path where archival server stores videos, it will be the root folder setting under storage settings
+* To add more shows open %SystemDrive%\delphijustin\udvr.bat
