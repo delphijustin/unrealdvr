@@ -1,0 +1,55 @@
+program regdword;
+
+{$Apptype console}
+
+uses
+  SysUtils,
+  windows;
+var return,rs:dword;
+hk:hkey;
+function getsubkey:Pchar;
+var skbuff:pchar;
+begin
+result:=stralloc(length(paramstr(1))+1);
+skbuff:=strscan(pchar(paramstr(1)),'\');
+if skbuff=nil then exit;
+inc(skbuff);
+strcopy(result,skbuff);
+end;
+
+function getRootKey:HKey;
+var shortkey:array[0..4]of char;
+bsindex:integer;
+begin
+strplcopy(shortkey,paramstr(1),4);
+if comparetext(shortkey,'HKLM')=0THEN RESULT:=HKEY_LOCAL_MACHINE ELSE
+if comparetext(shortkey,'HKCR')=0THEN RESULT:=HKEY_CLASSES_ROOT ELSE
+if comparetext(shortkey,'HKCU')=0THEN RESULT:=HKEY_CURRENT_USER ELSE
+if comparetext(shortkey,'HKU\')=0THEN RESULT:=HKEY_USERS ELSE
+Raise exception.create('No root key found');
+bsindex:=pos('\',paramstr(1));
+if not((bsindex=4)or(bsindex=5))then raise exception.create('Bad registry path');
+end;
+
+begin
+try rs:=4;
+case paramcount of
+0:begin
+writeln('Reads a REG_DWORD from the registry and returns with it in %errorlevel%');
+writeln('Usage:',extractfilename(paramstr(0)),' <key> <value_name> [default_value]');
+writeln('<key>                  Registry key');
+writeln('<value_name>           DWORD Name');
+writeln('<default_value>        Value to return when failed');
+writeln;
+writeln('Key names to use:');
+writeln('HKCR                   HKEY_CLASSES_ROOT');
+WRITELN('HKCU                   HKEY_CURRENT_USER');
+WRITELN('HKLM                   HKEY_LOCAL_MACHINE');WRITELN('HKU                    HKEY_USERS');writeln('Press enter to quit...');readln;exitprocess(0);end;2:regopenkeyex(getrootkey,getsubkey,0,key_read,hk);
+3:begin regopenkeyex(getrootkey,getsubkey,0,key_read,hk);return:=strtoint(
+paramstr(3));end;
+else raise exception.Create(syserrormessage(0));
+end;
+regqueryvalueex(hk,pchar(paramstr(2)),nil,nil,@return,@rs);
+except on e:Exception do writeln(e.classname,': ',e.message);end;
+regclosekey(hk);
+end.
