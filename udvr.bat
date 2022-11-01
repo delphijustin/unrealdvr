@@ -1,8 +1,10 @@
 @echo off
+set SelDev=B
 if not exist "%windir%\system32\schtasks.exe" goto noschtasks
 if exist "%programfiles%\UnrealStreaming\UArchivalServer\UArchivalServer.exe" goto founduas
 if exist "%ProgramFiles(x86)%\UnrealStreaming\UArchivalServer\UArchivalServer.exe" goto founduas
 echo Archival Server is not installed on this computer.
+pause
 goto done
 :noschtasks
 echo %windir%\system32\schtasks.exe does not exist.
@@ -29,11 +31,14 @@ md %systemdrive%\delphijustin
 md %systemdrive%\delphijustin\DVRTasks
 cls
 copy /Y %0 %systemdrive%\delphijustin
-copy /Y comsend.exe %systemdrive%\delphijustin
+::copy /Y comsend.exe %systemdrive%\delphijustin
+copy /Y remote.vbs %systemdrive%\delphijustin
+::comsend stopped working so remote.vbs was borned
 copy /Y regdword.exe %systemdrive%\delphijustin
 copy /Y timewait.exe %systemdrive%\delphijustin
 if "%config_choice%"=="2" goto prompt
 :setcomport
+powershell -command [System.IO.Ports.SerialPort]::getportnames()|find "COM"
 set /p comport=Enter serial port number: COM
 reg add HKCU\Software\Justin\UnrealDVR /v ArduinoPort /t REG_DWORD /d %comport% /F
 pause
@@ -41,8 +46,10 @@ pause
 reg add HKCU\Software\Justin\UnrealDVR /v Configured /t REG_DWORD /d 1 /F
 cls
 echo Serial Port is %ArduinoPort%
+echo Selected devicee is %SelDev%
 echo.
 echo What would you like to do?
+echo Z. Change Device Letter
 echo P. Change COM Port
 echo C. Change Channel
 echo S. Stop recording
@@ -50,16 +57,25 @@ echo A. Add a new scheduled recording
 echo D. Delete a scheduled recording
 echo R. Start recording
 echo X. Exit
-choice /C PCSADRX /M "Pick a letter"
-if errorlevel 7 goto done
-if errorlevel 6 goto manualrec
-if errorlevel 5 goto delete
-if errorlevel 4 goto newtask
-if errorlevel 3 goto userstop
-if errorlevel 2 goto callch
-if errorlevel 1 goto setcomport
+choice /C ZPCSADRX /M "Pick a letter"
+if errorlevel 8 goto done
+if errorlevel 7 goto manualrec
+if errorlevel 6 goto delete
+if errorlevel 5 goto newtask
+if errorlevel 4 goto userstop
+if errorlevel 3 goto callch
+if errorlevel 2 goto setcomport
+if errorlevel 1 goto setdev
 pause
 goto prompt
+:setdev
+echo Choose a device letter, or press C to cancel
+echo A should be for DVD players,etc
+echo B should be used for TV Shows as it is the default device
+choice /C ABC /M "Pick a letter"
+if errorlevel 3 goto prompt
+if errorlevel 2 set SelDev=B
+if errorlevel 1 set SelDev=A
 :userstop
 net stop uarchivalserver
 pause
@@ -146,7 +162,7 @@ pause
 goto prompt
 :callch
 set /p channel=Enter Channel number:
-%systemdrive%\delphijustin\comsend.exe /port=%ArduinoPort% /welcome=welcome /data=%channel% /done=done /newline
+%systemdrive%\delphijustin\remote.vbs /COMPort:%ArduinoPort% /C:%channel% /dev:%SelDev% /sw:1
 goto prompt
 :stop
 net stop uarchivalserver
@@ -180,7 +196,7 @@ title Recording in progress...
 net start uarchivalserver
 if "%1"=="/noch" goto skipch
 if "%1"=="/man" goto skipch
-if not "%ArduinoPort%"=="COM0" %systemdrive%\delphijustin\comsend.exe /port=%ArduinoPort% /welcome=welcome /data=%1 /done=done /newline
+if not "%ArduinoPort%"=="COM0" %systemdrive%\delphijustin\remote.vbs /COMPort:%ArduinoPort% /sw:7 /dev:%SelDev% /C:%1
 :skipch
 if "%1"=="/man" %systemdrive%\delphijustin\timewait.exe 00:00 %2
 if not "%1"=="/man" %systemdrive%\delphijustin\timewait.exe %2
@@ -191,6 +207,6 @@ title %comspec%
 goto done
 :justChangeChannel
 echo Changing channel to %1 on %ArduinoPort%...
-start /w %systemdrive%\delphijustin\comsend.exe /port=%ArduinoPort% /welcome=welcome /data=%1 /done=done /newline
+start /w %systemdrive%\delphijustin\remote.vbs /COMPort:%ArduinoPort% /sw:1 /dev:%SelDev% /C:%1
 echo Finished.
 :done
