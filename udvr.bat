@@ -207,6 +207,6 @@ title %comspec%
 goto done
 :justChangeChannel
 echo Changing channel to %1 on %ArduinoPort%...
-start /w %systemdrive%\delphijustin\remote.vbs /COMPort:%ArduinoPort% /sw:1 /dev:%SelDev% /C:%1
+start /w %systemdrive%\delphijustin\remote.vbs /COMPort:%ArduinoPort% /sw:1 /dev:%SelDev% /C:%7
 echo Finished.
 :done
