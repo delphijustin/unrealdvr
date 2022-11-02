@@ -22,7 +22,7 @@ For installing please follow those steps in the correct order:
 * Add one live stream and set start and end time from 00:00 to 23:59
 * Set file duration to 1440 minutes under the storage settings
 * Open udvr.bat
-* If you plan on having the computer change then press Y otherwise N
+* If you plan on having the computer change the channel then press Y otherwise N
 * If you pressed Y then enter the COM Port used by the arduino.
 * When asked to enter the full path where archival server stores videos, it will be the root folder setting under storage settings
 * To add more shows open %SystemDrive%\delphijustin\udvr.bat
