@@ -29,3 +29,10 @@ For installing please follow those steps in the correct order:
 * If you pressed Y then enter the COM Port used by the arduino.
 * When asked to enter the full path where archival server stores videos, it will be the root folder setting under storage settings
 * To add more shows open Start Menu -> Programs -> Unreal DVR
+
+# Screenshots
+![Mainmenu](screenshots/menu1.GIF)
+![Listing inside the console](screenshots/console_listing.GIF)
+![Web-based HLS Player(at the top of the page)](screenshots/webplayer.gif)
+![Bottom of the page](screenshots/webplayerbottom.gif)
+![Listing in the browser](screenshots/listings.gif)
