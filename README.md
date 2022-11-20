@@ -12,6 +12,9 @@ It does the following steps when it is suppose to record:
 * Searches for any new recordings and moves them.
 
 Features
+* Can get listings of shows
+* Can merge the files together if needed
+* Includes a webbrowser HLS player with remote and tv listings.
 * Record with a date and a time(not just a time)
 * Stream and record at the same time.
 * (Optional) Be able to change the channel via Arduino and IR LED
@@ -25,4 +28,4 @@ For installing please follow those steps in the correct order:
 * If you plan on having the computer change the channel then press Y otherwise N
 * If you pressed Y then enter the COM Port used by the arduino.
 * When asked to enter the full path where archival server stores videos, it will be the root folder setting under storage settings
-* To add more shows open %SystemDrive%\delphijustin\udvr.bat
+* To add more shows open Start Menu -> Programs -> Unreal DVR
