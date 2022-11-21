@@ -237,14 +237,8 @@ if "%dayindex%"=="1" set schtasks_params=%schtasks_params% MON
 call %0 /date %date%
 set taskdate=%udvr_date%
 echo Default Date: %udvr_date%
-:retryD1
 set /p taskdate=Enter start date:
-%udvrdir%\systtime.exe /vd %taskdate%
-if errorlevel 1 goto retryD1
-:retryT1
 set /p starttime=Enter start time(no date):
-%udvrdir%\systtime.exe /vt %starttime%
-if errorlevel 1 goto retryT1
 set return=1
 set time12=%starttime%
 goto hour24
@@ -302,7 +296,7 @@ goto webremote
 set starttime24=%time24%
 set schtasks_params=%schtasks_params% /ST %starttime24% /SD %taskdate%
 :retryT2
-set /p Endtime=Enter the time when the recording should stop(in 24-hour format, no date):
+set /p Endtime=Enter the time when the recording should stop(no date):
 set return=2
 set time12=%endtime%
 :hour24
