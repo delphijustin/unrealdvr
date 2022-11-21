@@ -26,7 +26,7 @@ t1,t2,showStart:tdatetime;
 disp,rs,fileid,tid,wrote,xmlfetch,dwPin:dword;
 hk,hkserver:hkey;
 db,chListings,chItem:tstringlist;
-hbusy,stdout,js:THandle;
+stdout,js:THandle;
 chan,installdir:string;
 pin:array[0..15]of char;
 jsarray:ansistring;
@@ -225,10 +225,7 @@ if strlen(url)=0 then raise exception.Create('Please ccnfigure tvlist');
 strlfmt(fmturl,max_path,strlcat(url,tvguide_php_url,max_path),[db.values[
 paramstr(2)],getcurrentprocessid+time]);fileid:=gettempfilename('.','udvrls',0
 ,fn);writeln('Downloading results...');
-hbusy:=createthread(nil,0,@busythread,nil,0,tid);
 olecheck(urldownloadtofile(nil,fmturl,fn,0,nil));
-terminatethread(hbusy,1);
-closehandle(hbusy);
 chlistings:=tstringlist.Create;
 chitem:=tstringlist.Create;chlistings.LoadFromFile(fn);deletefile(fn);chlistings.Text:=
 stringreplace(stringreplace(stringreplace(stringreplace(chlistings.Text,']','',[

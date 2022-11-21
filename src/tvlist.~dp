@@ -18,7 +18,7 @@ tvguide_php_url='?c=%s&r=%g';
 mediacom_dwight='http://host.delphianserver.com:888/mediacom-dwight.php?f=%d';
 config_done:dword=1;
 var fn,url,fmturl,jsfile,rold,hls:array[0..max_path]of char;
-I,count:integer;
+I,count,foundM3U8:integer;
 systemdrive:array[0..4]of char;
 apikey,lineup,installerid:array[byte]of char;
 dbfile:tinifile;
@@ -27,7 +27,6 @@ disp,rs,fileid,tid,wrote,xmlfetch,dwPin:dword;
 hk,hkserver:hkey;
 db,chListings,chItem:tstringlist;
 hbusy,stdout,js:THandle;
-foundM3U8:boolean;
 chan,installdir:string;
 pin:array[0..15]of char;
 jsarray:ansistring;
@@ -346,9 +345,9 @@ if(comparetext(paramstr(1),'/test')=0)then begin
 regcreatekeyex(hkey_current_user,'Software\Justin\UnrealDVR',0,nil,
 reg_option_non_volatile,key_all_access,nil,hk,nil);apikey[0]:=#0;lineup[0]:=#0;
 rs:=sizeof(fn);regqueryvalueex(hk,'M3U8Path',nil,nil,@fn,@rs);regclosekey(hk);
-foundM3u8:=(findfirst(format('%s\*.m3u8',[fn]),srM3U8,faAnyfile)=0);
+foundM3u8:=findfirst(format('%s\*.m3u8',[fn]),faAnyfile,srm3u8);
 sysutils.FindClose(srM3u8);
-exitprocess(ord(foundm3u8));
+exitprocess(foundm3u8);
 end;
 if(strtointdef(paramstr(1),-1)<0)or(strtointdef(paramstr(1),0)>1)then
 raise exception.Create(syserrormessage(error_invalid_parameter));
