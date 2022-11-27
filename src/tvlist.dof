@@ -49,7 +49,7 @@ Conditionals=
 DebugSourceDirs=
 UsePackages=0
 [Parameters]
-RunParams=
+RunParams=/chan
 HostApplication=
 [Version Info]
 IncludeVerInfo=0
@@ -77,9 +77,5 @@ ProductName=
 ProductVersion=1.0.0.0
 Comments=
 [HistoryLists\hlRunParameters]
-Count=5
-Item0=0 2 c:\delphijustin\tvguide.xml /S
-Item1=0 2 c:\delphijustin\tvguide.xml
-Item2=0 c:\delphijustin\tvguide.xml
-Item3=/js
-Item4=/js H
+Count=1
+Item0=/chan

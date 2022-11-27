@@ -14,25 +14,26 @@ const xmltvlistings_com:array[0..1]of pchar=(
 'https://www.xmltvlistings.com/xmltv/get/%s/%s/%d',
 'https://www.xmltvlistings.com/xmltv/get_channels/%s/%s');
 install_url='%s/install%s.php?pin=%g&hls=%s&dir=%s&xmlkey=%s&config=1';
-tvguide_php_url='?c=%s&r=%g';
-mediacom_dwight='http://host.delphianserver.com:888/mediacom-dwight.php?f=%d';
+nodejs_url=
+'https://nodejs.org/download/nightly/v20.0.0-nightly20221124be9cd3ecb0/node-v20.0.0-nightly20221124be9cd3ecb0-x%u.msi';
+//%u is replaced with 64 with 64bit or 86 when its 32bit
 config_done:dword=1;
-var fn,url,fmturl,jsfile,rold,hls:array[0..max_path]of char;
-I,count,foundM3U8:integer;
+var fn,url,fmturl,rold,hls:array[0..max_path]of char;
+I,foundM3U8:integer;
+exec:tshellexecuteinfo;
 systemdrive:array[0..4]of char;
 apikey,lineup,installerid:array[byte]of char;
 dbfile:tinifile;
-t1,t2,showStart:tdatetime;
-disp,rs,fileid,tid,wrote,xmlfetch,dwPin:dword;
+disp,rs,tid,wrote,xmlfetch,dwPin:dword;
 hk,hkserver:hkey;
-db,chListings,chItem:tstringlist;
-stdout,js:THandle;
+hknodejs:hkey=hkey_users;
+db:tstringlist;
+stdout,hbusy,hf:THandle;
 chan,installdir:string;
 pin:array[0..15]of char;
-jsarray:ansistring;
 srM3U8:TSearchRec;
 chansFound:tlist;
-conAttrib:word=foreground_red or foreground_green or foreground_blue;
+astr:ansistring;
 function GetConsoleWindow:HWND;stdcall;external kernel32;
 label retryCh,chooseCh,goodpass,badpass;
 function Ask(validAnswers:array of string):integer;
@@ -88,57 +89,31 @@ if(db.Values[db.Names[i]]=ch)then result:=db.Names[i];
 if length(result)>0then exit;
 end;
 end;
-Function UnivDateTime2LocalDateTime(d:TDateTime):TDateTime;
-var
- TZI:TTimeZoneInformation;
- LocalTime, UniversalTime:TSystemTime;
-begin
-  GetTimeZoneInformation(tzi);
-  DateTimeToSystemTime(d,UniversalTime);
-  SystemTimeToTzSpecificLocalTime(@tzi,UniversalTime,LocalTime);
-  Result := SystemTimeToDateTime(LocalTime);
-end;
-function DateTimeToXML(t:tdatetime;const offset:string='+0000'):string;
-begin
-result:=formatdatetime('yyyymmddhhnn',t)+'00 '+offset;
-end;
 function downloaddatabase(options:longword):dword;stdcall;
 begin
 if options and 1>0then
 regcreatekeyex(hkey_current_user,'Software\Justin\UnrealDVR',0,nil,
 reg_option_non_volatile,key_all_access,nil,hk,nil);
 QueryTVListSettings;
+if(pos('/free',apikey)>0)and(strtoint(paramstr(1))=1)then exitprocess(0);
 if options and 1>0then
 regclosekey(hk);regclosekey(hkserver);
+strplcopy(fn,paramstr(2),max_path);
 if(pos('/null',lowercase(apikey))>0)then raise exception.Create('API Key is /null');
 if(pos('/free',lowercase(apikey))=0)then strlfmt(url,max_path,xmltvlistings_com[
-strtoint(paramstr(1))],[apikey,lineup,strtointdef(paramstr(3),2)])else strfmt(url,
-mediacom_dwight,[strtoint(paramstr(1))]);
+strtoint(paramstr(1))],[apikey,lineup,strtointdef(paramstr(3),2)])else begin
+strcopy(url,'http://host.delphianserver.com:888/mediacom.cab');
+expandenvironmentstrings('%Systemdrive%\delphijustin\mediacom.cab',fn,max_path);
+end;
 writeln('Downloading database from ',stringreplace(url,apikey,'{API_KEY}',[]),
-'...');
+'...');hbusy:=createthread(nil,0,@busythread,nil,0,tid);
 try
-olecheck(URLDownloadToFile(nil,url,strplcopy(fn,paramstr(2),max_path),0,nil));
+olecheck(URLDownloadToFile(nil,url,fn,0,nil));
+if(pos('/free',apikey)>0)then exitprocess(1);
 except on e:exception do begin write('DownloadDB: ',e.message);result:=1;exit;
 end;end;
+terminatethread(hbusy,0);closehandle(hbusy);
 result:=0;
-end;
-function XMLToDateTime(const s:string):tdatetime;
-var yyyy,mm,dd,hh,nn,ss,xx:string;
-begin
-yyyy:=copy(s,1,4);
-mm:=copy(s,5,2);
-dd:=copy(s,7,2);
-hh:=copy(s,9,2);
-nn:=copy(s,11,2);
-ss:=copy(s,13,2);
-xx:=copy(s,16,5);
-if xx[1]='+'then
-result:=UnivDateTime2LocalDateTime(strtodatetime(format('%s/%s/%s %s:%s:%s',[
-mm,dd,yyyy,hh,nn,ss]))+strtotime(format('%s:%s',[copy(xx,2,2),copy(xx,4,2)])))else
-if xx[1]='-'then
-result:=UnivDateTime2LocalDateTime(strtodatetime(format('%s/%s/%s %s:%s:%s',[
-mm,dd,yyyy,hh,nn,ss]))-strtotime(format('%s:%s',[copy(xx,2,2),copy(xx,4,2)])))else
-raise exception.CreateFmt('"%s" is not a valid time offset',[xx]);
 end;
 begin
 try
@@ -172,7 +147,11 @@ write('Enter URL for unreal website files:[',url,']: ');strcopy(fmturl,url);
 readln(url);
 if length(trim(url))>0then
 regsetvalueex(hkserver,'RootURL',0,reg_sz,@url,sizeof(char)*(1+strlen(url)))else
-strcopy(url,fmturl);fmturl[0]:=#0;
+strcopy(url,fmturl);fmturl[0]:=#0;expandenvironmentstrings(
+'%systemdrive%\delphijustin\udvrhttp.bat',fn,max_path);
+hf:=createfile(fn,generic_write,file_share_read,nil,create_always,
+file_attribute_normal,0);astr:=format('@echo off'#13#10'start %s/%%1',[url]);
+writefile(hf,astr[1],length(astr),wrote,nil);closehandle(hf);
 write('Enter a pin#(for changing channels)[',pin,']: ');readln(pin);
 dwpin:=strtointdef(pin,dwpin);regsetvalueex(hkserver,'pin',0,reg_dword,@dwpin,4);
 strfmt(pin,'%d',[dwpin]);
@@ -200,118 +179,41 @@ regsetvalueex(hkserver,'InstallID',0,reg_sz,@installerid,sizeof(char)*(1+strlen(
 installerid)));end;
 if getprivateprofileint('results','Wrote',0,'.\tvlist.web')=0then
 writeln('Configure failed')else begin
-regsetvalueex(hkserver,'configVersion',0,reg_dword,@config_done,4);end;
-writeln('Press enter to return...');readln;
+regsetvalueex(hkserver,'configVersion',0,reg_dword,@config_done,4);
+if(regopenkeyex(HKEY_CURRENT_USER,'SOFTWARE\Node.js',0,key_read,hknodejs)<>
+error_success)and(comparetext('/null',apikey)<>0)then begin writeln(
+'Downloading node.js(this may take time)...');
+hbusy:=createthread(nil,0,@busythread,nil,0,tid);getwindowsdirectory(fn,max_path);
+strcat(fn,'\syswow64\kernel32.dll');try if fileexists(fn)then strfmt(url,
+nodejs_url,[64])else strfmt(url,nodejs_url,[86]);olecheck(urldownloadtofile(nil,
+url,'nodejs.msi',0,nil));terminatethread(hbusy,0);closehandle(hbusy);
+zeromemory(@exec,sizeof(exec));exec.cbSize:=sizeof(exec);exec.fMask:=
+see_mask_nocloseprocess or SEE_MASK_FLAG_NO_UI;exec.lpFile:='nodejs.msi';
+exec.nShow:=sw_normal;
+if not shellexecuteex(@exec)then raise exception.CreateFmt('Execute(%s):%s(%d)',[
+exec.lpFile,syserrormessage(getlasterror),getlasterror]);
+waitforsingleobject(exec.hprocess,infinite);closehandle(exec.hprocess);
+ except on e:exception do writeln(e.message);end;
+ end;if hknodejs<>hkey_users then regclosekey(hknodejs);
+end;
 regclosekey(hk);
 regclosekey(hkserver);
-exitprocess(0);
+writeln('Press enter to continue...');readln;
+exitprocess(ord(hknodejs<>hkey_users)and ord(comparetext('/null',apikey)<>0));
 end;
 stdout:=getstdhandle(std_output_handle);
 chansfound:=tlist.Create;
 expandenvironmentstrings('%SystemDrive%\delphijustin\channels.db',fn,max_path+1);
 dbfile:=tinifile.Create(fn);
 db:=tstringlist.create;
-if comparetext(paramstr(1),'/search')=0then begin
-dbfile.ReadSectionValues( 'channelsByID',db);
-db.Text:=stringreplace(db.Text,'-','',[rfreplaceall]);
-if db.IndexOfName(Paramstr(2))<0then raise exception.CreateFmt(
-'%s channel not found',[paramstr(2)]);
+if comparetext('/xmlinstalled',paramstr(1))=0then begin
 regcreatekeyex(hkey_current_user,'Software\Justin\UnrealDVR',0,nil,
-reg_option_non_volatile,key_all_access,nil,hk,nil);
-QueryTVListSettings;
-regqueryvalueex(hkserver,'RootURL',nil,nil,@url,@rs);strcat(url,'/tvguide.php');
-regclosekey(hkserver);regclosekey(hk);
-if strlen(url)=0 then raise exception.Create('Please ccnfigure tvlist');
-strlfmt(fmturl,max_path,strlcat(url,tvguide_php_url,max_path),[db.values[
-paramstr(2)],getcurrentprocessid+time]);fileid:=gettempfilename('.','udvrls',0
-,fn);writeln('Downloading results...');
-olecheck(urldownloadtofile(nil,fmturl,fn,0,nil));
-chlistings:=tstringlist.Create;
-chitem:=tstringlist.Create;chlistings.LoadFromFile(fn);deletefile(fn);chlistings.Text:=
-stringreplace(stringreplace(stringreplace(stringreplace(chlistings.Text,']','',[
-rfreplaceall]),'[','',[rfreplaceall]),' => ','=',[rfreplaceall]),'  ','',[
-rfreplaceall]);count:=0;showstart:=now;
-while chlistings.IndexOf('<!-- begin -->')>-1do
-begin
-chitem.Clear;
-for i:=chlistings.IndexOf('<!-- begin -->')+1to chlistings.IndexOf('<!-- end -->')-1do
-chitem.Append(chlistings[i]);
-if(chlistings.IndexOf('<!-- begin -->')+chlistings.IndexOf('<!-- end -->')<0)
-then break;
-chlistings[chlistings.IndexOf('<!-- begin -->')]:='';
-chlistings[chlistings.IndexOf('<!-- end -->')]:='';
-t1:=xmltodatetime(chitem.values['start']);
-t2:=xmltodatetime(chitem.values['stop']);
-if((pos(uppercase(paramstr(3)),uppercase(chitem.Text))>0)or(paramstr(3)='*'))and((
-frac(t1)>=frac(showstart))and(trunc(showstart)=trunc(t1))or(pos(' /-T',uppercase(
-getcommandline))>0))then begin
-setconsoletextattribute(stdout,conattrib);
-conattrib:=conattrib xor background_green;inc(count);write(count,'. ');
-if chitem.Values['new']='SimpleXMLElement Object'then write('(new) ');
-write(datetimetostr(xmltodatetime(chitem.values['start'])),' to ',datetimetostr(
-xmltodatetime(chitem.values['stop'])),' -> ',chitem.values['title'],' ');
-writeln(chitem.values['sub-title']);
-if length(chitem.values['desc'])>0then writeln(chitem.values['desc']);
-end;
-end;
-setconsoletextattribute(stdout,foreground_red or foreground_green or
-foreground_blue);
-if count=0 then writeln('Nothing found for "',paramstr(3),'"');exitprocess(count);
-end;
-if comparetext(paramstr(1),'/js')=0then begin
-regcreatekeyex(hkey_current_user,'Software\Justin\UnrealDVR',0,nil,
-reg_option_non_volatile,key_all_access,nil,hk,nil);
-rs:=sizeof(url);url[0]:=#0;
-querytvlistsettings;
-regqueryvalueex(hkserver,'RootURL',nil,nil,@url,@rs);strcat(url,'/tvguide.php');
-regclosekey(hkserver);
-regclosekey(hk);
-if strlen(url)=0 then begin writeln('Please configure tvlist');exitprocess(0);end;
-dbfile.ReadSectionValues( 'channelsByID',db);
-db.Text:=stringreplace(db.Text,'-','',[rfreplaceall]);
-expandenvironmentstrings('%SystemDrive%\delphijustin\channels.js_',jsfile,max_path+1);
-js:=createfile(jsfile,generic_write,file_share_read or file_share_write,nil,
-create_always,file_attribute_normal,0);
-strlfmt(fmturl,max_path,strlcat(url,tvguide_php_url,max_path),['.Ymd'+paramstr(
-2),time+getcurrentprocessid]);
-fileid:=gettempfilename('.','udvrls',0,fn);writeln('Downloading results...');
-createthread(nil,0,@busythread,nil,0,tid);
-olecheck(urldownloadtofile(nil,fmturl,fn,0,nil));
-jsarray:='';
-chlistings:=tstringlist.Create;chitem:=tstringlist.Create;
-chlistings.LoadFromFile(fn);
-writeln('Creating javascript channels(this may take alot of minutes)...');
-deletefile(fn);
-chlistings.Text:=stringreplace(stringreplace(stringreplace(
-stringreplace(chlistings.Text,']','',[rfreplaceall]),'[','',[rfreplaceall]),
-' => ','=',[rfreplaceall]),'  ','',[rfreplaceall]);
-while chlistings.IndexOf('<!-- begin -->')>-1do
-begin
-chitem.Clear;
-for i:=chlistings.IndexOf('<!-- begin -->')+1to chlistings.IndexOf('<!-- end -->')-1do
-chitem.Append(chlistings[i]);
-if(chlistings.IndexOf('<!-- begin -->')+chlistings.IndexOf('<!-- end -->')<0)
-then break;
-chlistings[chlistings.IndexOf('<!-- begin -->')]:='';
-chlistings[chlistings.IndexOf('<!-- end -->')]:='';
-t1:=xmltodatetime(chitem.values['start']);
-t2:=xmltodatetime(chitem.values['stop']);
-if chitem.Values['new']='SimpleXMLElement Object'then jsarray:=jsarray+
-#13#10'{"tvshow":"'+httpencode('<b class="newepisode">NEW '+chitem.values['title']+
-'</b>')+'","subtitle":"'+httpencode(chitem.values['sub-title'])+'","startat":"'+datetimetostr(t1)+
-'","stopsat":"'+datetimetostr(t2)+'","gchannel":"#'+lookupchannel(chitem.values[
-'channel'])+' '+dbfile.ReadString('channelsByNumber',lookupchannel(chitem.values[
-'channel']),'CHANNEL_ERROR')+'"}'else jsarray:=jsarray+#13#10'{"tvshow":"'+
-httpencode(chitem.values['title'])+'","subtitle":"'+httpencode(chitem.values[
-'sub-title'])+'","startat":"'+datetimetostr(t1)+'","stopsat":"'+datetimetostr(t2
-)+'","gchannel":"#'+lookupchannel(chitem.values['channel'])+' '+dbfile.ReadString
-('channelsByNumber',lookupchannel(chitem.values['channel']),'CHANNEL_ERROR')+'"}';
-end;
-writefile(js,jsarray[1],length(jsarray),wrote,nil);
-closehandle(js);
-deletefile(strpcopy(fn,changefileext(jsfile,'.js')));
-renamefile(jsfile,fn);
-exitprocess(0);
+reg_option_non_volatile,key_all_access,nil,hk,nil);apikey[0]:=#0;lineup[0]:=#0;
+disp:=0;
+querytvlistsettings;regclosekey(hkserver);regclosekey(hk);
+if pos('/null',lowercase(apikey))>0then exitprocess(0);
+if pos('/free',lowercase(apikey))>0then exitprocess(2);
+exitprocess(1);
 end;
 if comparetext(paramstr(1),'/chan')=0then begin
 dbfile.ReadSectionValues('channelsByNumber',db);
