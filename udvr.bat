@@ -9,14 +9,21 @@ if exist "%ProgramFiles(x86)%\UnrealStreaming\UArchivalServer\UArchivalServer.ex
 echo Archival Server is not installed on this computer.
 pause
 goto done
+:JSMake
+echo Creating javascript file for channel %2...
+%SystemDrive%
+cd %udvrdir%
+call channels.bat %2
+node udvrnode.js %cid% >channels\ch%2.js
+goto done
 :donate
 echo (P)ayPal
 echo (C)ashApp
 echo Go (B)ack
 choice /C PCB /M "Pick a letter"
-if errorlevel 3 goto prompt
-if errorlevel 2 start https://www.paypal.com/paypalme/delphijustin/
-if errorlevel 1 start https://cash.app/delphijustin/
+set paytype=%errorlevel%
+if "%paytype%"=="1" start https://www.paypal.com/paypalme/delphijustin/
+if "%paytype%"=="2" start https://cash.app/delphijustin/
 goto prompt
 :noschtasks
 echo %windir%\system32\schtasks.exe does not exist.
@@ -26,8 +33,25 @@ goto done
 set udvr_date=%3
 goto done
 :upxml
+if not exist %udvrdir%\channels.xml %udvrdir%\tvlist.exe 1 %udvrdir%\channels.xml
 %udvrdir%\tvlist.exe 0 %udvrdir%\tvguide.xml
-%udvrdir%\tvlist.exe /js
+if "%errorlevel%"=="1" goto mediacom
+if exist %udvrdir%\channels\success del %udvrdir%\channels\success
+%SystemDrive%
+cd %udvrdir%
+call channels.bat *
+echo %errorlevel% >%udvrdir%\channels\success
+if exist xmltvcab.txt makecab -F xmltvcab.txt
+if exist xmltvcab.txt ren disk1\mediacomnew.cab mediacom.cab
+if "%2"=="/pause" pause
+goto done
+:mediacom
+if exist %udvrdir%\channels\success del %udvrdir%\channels\success
+expand %udvrdir%\mediacom.cab -F:* %udvrdir%\channels
+echo MEDIACOM_FREE>%udvrdir%\channels\success
+if exist %udvrdir%\channels.xml del %udvrdir%\channels.xml
+move %udvrdir%\channels\channels.xml %udvrdir%
+if "%2"=="/pause" pause
 goto done
 :founduas
 set udvrdir=.
@@ -38,6 +62,7 @@ if "%1"=="/web" goto webremote
 if "%1"=="/date" goto setdate
 if "%1"=="/stop" goto stop
 if "%1"=="/upxml" goto upxml
+if "%1"=="/js" goto JSMake
 if not "%1"=="" goto record
 %udvrdir%\regdword.exe hkcu\SOFTWARE\Justin\UnrealDVR ArduinoPort 0
 set ArduinoPort=COM%errorlevel%
@@ -50,10 +75,12 @@ if "%config_choice%"=="3" goto done
 set udvrdir=%systemdrive%\delphijustin
 md %udvrdir%
 md %udvrdir%\DVRTasks
+md %udvrdir%\channels
 cls
 copy /Y %0 %udvrdir%
 copy /Y udvr.ico %udvrdir%
 copy /Y remote.vbs %udvrdir%
+copy /Y udvrnode.js %udvrdir%
 copy /Y regdword.exe %udvrdir%
 copy /Y com2tcp.exe %udvrdir%
 copy /Y tvlist.exe %udvrdir%
@@ -72,16 +99,20 @@ echo lnk.WindowStyle = "1">>%tmp%\udvrsetup.vbs
 echo lnk.WorkingDirectory = "%udvrdir%">>%tmp%\udvrsetup.vbs
 echo lnk.Save>>%tmp%\udvrsetup.vbs
 echo Set lnk = Nothing>>%tmp%\udvrsetup.vbs
-cscript %tmp%\udvrsetup.vbs
+cscript //NoLogo %tmp%\udvrsetup.vbs
 del %tmp%\udvrsetup.vbs
 echo @echo off>%udvrdir%\udvrdele.bat
-echo set /p dummy=Your about to uninstall Unreal DVR, to do so press enter...>>%udvrdir%\udvrdele.bat
+echo choice /C YN /M "Are you sure you want to uninstall Unreal DVR">>%udvrdir%\udvrdele.bat
+echo if errorlevel 2 goto cancel>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\udvr.bat>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\lastremo.bat>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\tvguide.xml>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\channels.db>>%udvrdir%\udvrdele.bat
+echo del %udvrdir%\channels.xml>>%udvrdir%\udvrdele.bat
+echo del %udvrdir%\udvrnode.js>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\tvlist.exe>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\sorted.txt>>%udvrdir%\udvrdele.bat
+echo del %udvrdir%\channels.bat>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\systtime.exe>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\remote.vbs>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\timewait.exe>>%udvrdir%\udvrdele.bat
@@ -91,16 +122,18 @@ echo del %udvrdir%\sortmp4.exe>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\telnetserver.bat>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\udvr.ico>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\ffmpeg.exe>>%udvrdir%\udvrdele.bat
-echo del %udvrdir%\channels.xml>>%udvrdir%\udvrdele.bat
+echo del %udvrdir%\udvrhttp.bat>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\udvr.ps1>>%udvrdir%\udvrdele.bat
 echo del %udvrdir%\udvr.%udvrver%.ver.txt>>%udvrdir%\udvrdele.bat
 echo del %appdata%\Microsoft\Windows\Start Menu\Programs\Unreal DVR.lnk>>%udvrdir%\udvrdele.bat
 echo rd /S /Q %udvrdir%\dvrtasks>>%udvrdir%\udvrdele.bat
+echo rd /S %udvrdir%\channels>>%udvrdir%\udvrdele.bat
 echo schtasks.exe /Delete /TN \delphijustin\UDVR* /F>>%udvrdir%\udvrdele.bat
 echo reg delete HKCU\Software\Justin\UnrealDVR /f>>%udvrdir%\udvrdele.bat
 echo reg delete HKCU\Software\software\microsoft\windows\currentversion\run /v UnrealDVRWebRemote /f>>%udvrdir%\udvrdele.bat
 echo reg delete HKCU\Software\microsoft\windows\currentversion\uninstall\unrealdvr /f>>%udvrdir%\udvrdele.bat
 echo pause>>%udvrdir%\udvrdele.bat
+echo :cancel>>%udvrdir%\udvrdele.bat
 reg add hkcu\Software\Microsoft\Windows\CurrentVersion\Uninstall\UnrealDVR /v UninstallString /d "%udvrdir%\udvrdele.bat" /f
 reg add hkcu\Software\Microsoft\Windows\CurrentVersion\Uninstall\UnrealDVR /v DisplayName /d "delphijustin Unreal DVR" /f
 cls
@@ -122,8 +155,9 @@ echo Serial Port is %ArduinoPort%
 echo Selected devicee is %SelDev%
 echo.
 echo What would you like to do?
-echo L. View listings(requires PHP and xmltvlistings.com account)
-echo W. Install/Configure Services
+echo L. See channel listings
+echo W. Watch TV
+echo I. Install/Configure Services
 echo M. Donate money
 echo Z. Change Device Letter
 echo P. Change COM Port
@@ -133,41 +167,46 @@ echo A. Add a new scheduled recording
 echo D. Delete a scheduled recording
 echo R. Start recording
 echo X. Exit
-choice /C LWMZPCSADRX /M "Pick a letter"
-if errorlevel 11 goto done
-if errorlevel 10 goto manualrec
-if errorlevel 9 goto delete
-if errorlevel 8 goto newtask
-if errorlevel 7 goto userstop
-if errorlevel 6 goto callch
-if errorlevel 5 goto setcomport
-if errorlevel 4 goto setdev
-if errorlevel 3 goto donate
-if errorlevel 2 goto webinstall
-if errorlevel 1 goto listing
+choice /C IMZPCSADRXWL /M "Pick a letter"
+if errorlevel 12 goto listing
+if errorlevel 11 goto watchtv
+if errorlevel 10 goto done
+if errorlevel 9 goto manualrec
+if errorlevel 8 goto delete
+if errorlevel 7 goto newtask
+if errorlevel 6 goto userstop
+if errorlevel 5 goto callch
+if errorlevel 4 goto setcomport
+if errorlevel 3 goto setdev
+if errorlevel 2 goto donate
+if errorlevel 1 goto webinstall
 echo choice command failed
 pause
 goto done
-:tvlistfailed
-echo TVLIST.EXE has failed! Perhaps it is not configured correctly.
-pause
-goto prompt
 :listing
+cls
 %udvrdir%\tvlist.exe /chan
 set channel=%errorlevel%
-if "%channel%"=="%errorfailed%" goto tvlisterror
+if "%channel%"=="%errorfailed%" goto tvlistfailed
 if "%channel%"=="0" goto prompt
-cls
-set search=*
-set /p search=TV Show Search: 
-choice /M "Show only listing for the exact timr it is now" /C YN
-if errorlevel 2 goto notimelisting
-if errorlevel 1 %udvrdir%\tvlist.exe /search %channel% "%search%"
-if errorlevel %errorfailed% goto tvlisterror
+set query=
+set /p query=(Optional)Enter search query:
+echo Reading database...
+if "%query%"=="" cscript.exe //NoLogo chsearch.js /C:%channel%
+if not "%query%"=="" cscript.exe //NoLogo chsearch.js /C:%channel% "/Q:%query%"
+pause
+goto listing
+:watchtv
+if not exist %udvrdir%\udvrhttp.bat goto noServ
+call %udvrdir%\udvrhttp.bat
+goto prompt
+:noServ
+echo Please configure services.
 pause
 goto prompt
-:notimelisting
-%udvrdir%\tvlist.exe /search %channel% "%search%" /-T
+:tvlistfailed
+echo TVLIST.EXE has failed! Perhaps it is not configured correctly.
+echo or installing failed.
 pause
 goto prompt
 :setdev
@@ -237,15 +276,30 @@ if "%dayindex%"=="1" set schtasks_params=%schtasks_params% MON
 call %0 /date %date%
 set taskdate=%udvr_date%
 echo Default Date: %udvr_date%
+:retryD1
 set /p taskdate=Enter start date:
+%udvrdir%\systtime.exe /vd %taskdate%
+if errorlevel 1 goto retryD1
+:retryT2
 set /p starttime=Enter start time(no date):
+%udvrdir%\systtime.exe /vt %starttime%
+if errorlevel 1 goto retryT2
 set return=1
 set time12=%starttime%
 goto hour24
-:webinstall 
+:webinstall
 %udvrdir%\regdword.exe hkcu\SOFTWARE\Justin\UnrealDVR ServerVersion 0 >nul
 goto webConfigured%errorlevel%
 :webConfigured0
+%udvrdir%\tvlist.exe
+if errorlevel 2 goto tvlistfailed
+if errorlevel 1 npm install node-xml-stream --save
+%udvrdir%\tvlist.exe /xmlinstalled
+if errorlevel 3 goto tvlistfailed
+if errorlevel 2 goto yesxml
+if errorlevel 1 goto yesxml
+goto noxml
+:yesxml
 if "%passwd%"=="" set /p passwd=Enter password for %USERDOMAIN%\%USERNAME%:
 set time12=12:00am
 echo Please choice a daily time to update tv listing
@@ -257,9 +311,10 @@ goto hour24
 set /p M3U8Path=Enter the folder path where unreal media server stores .M3U8 File(not a URL,no ending backslash and no spaces):
 reg add hkcu\SOFTWARE\Justin\UnrealDVR /v M3U8Path /t REG_SZ /d "%M3U8Path%" /F
 schtasks /create /RU %USERDOMAIN%\%USERNAME% /RP %passwd% /TN "delphijustin\UDVRXML1" /SC DAILY /ST %time24% /TR "%SystemDrive%\delphijustin\udvr.bat /upxml" /F
-%udvrdir%\tvlist.exe
+echo Creating the database can take time
 choice /M "Download/create files now"
 if "%errorlevel%"=="1" call %0 /upxml
+:noxml
 echo Set objShell = WScript.CreateObject("WScript.Shell")>%tmp%\udvrsetup.vbs
 echo Set lnk = objShell.CreateShortcut("%appdata%\Microsoft\Windows\Start Menu\Programs\Startup\Unreal DVR WebRemote.lnk")>>%tmp%\udvrsetup.vbs
 echo lnk.TargetPath = "%udvrdir%\udvr.bat">>%tmp%\udvrsetup.vbs
@@ -270,7 +325,7 @@ echo lnk.WindowStyle = "7">>%tmp%\udvrsetup.vbs
 echo lnk.WorkingDirectory = "%udvrdir%">>%tmp%\udvrsetup.vbs
 echo lnk.Save>>%tmp%\udvrsetup.vbs
 echo Set lnk = Nothing>>%tmp%\udvrsetup.vbs
-cscript %tmp%\udvrsetup.vbs
+cscript //NoLogo %tmp%\udvrsetup.vbs
 del %tmp%\udvrsetup.vbs
 reg add hkcu\SOFTWARE\Justin\UnrealDVR\TVList /v configVersion /t REG_DWORD /d %server% /F
 :skipWebConfig
@@ -295,8 +350,10 @@ goto webremote
 :timereturn1
 set starttime24=%time24%
 set schtasks_params=%schtasks_params% /ST %starttime24% /SD %taskdate%
-:retryT2
+:retryT1
 set /p Endtime=Enter the time when the recording should stop(no date):
+%udvrdir%\systtime.exe /vt %endtime%
+if errorrlevel 1 goto retryT1
 set return=2
 set time12=%endtime%
 :hour24
@@ -322,7 +379,7 @@ if "%TaskCh%"=="0" set TaskCh=/noch
 ::set /p TaskCh=Enter Channel number(just press enter for no channel):
 choice /C YN /M "Create task"
 if errorlevel 2 goto prompt
-schtasks %schtasks_params% /TR "%udvrdir%\udvr.bat %TaskCh% %endtime24% %ArcPath% %moveto%\%TaskDesc%"
+schtasks %schtasks_params% /TR "%udvrdir%\udvr.bat %TaskCh% %time24% %ArcPath% %moveto%\%TaskDesc%"
 if errorlevel 1 goto taskfailed
 echo ID UDVR%TaskID% - %taskDesc% - Channel %taskch% - Start: %Taskdate% %starttime% End: %endtime%>%udvrdir%\DVRTasks\%TaskID%.txt
 :taskfailed
@@ -407,7 +464,7 @@ if errorlevel 2 goto merge
 if not errorlevel 1 goto noMP4
 for /R %3 %%v in (*.mp4) do move "%%v" "%mp4file%.mp4"
 :recdone
-%udvrdir%\timewait.exe 00:00:00 00:00:15>nul
+%udvrdir%\timewait.exe 00:00:00 00:00:15 >nul
 title %comspec%
 goto done
 :makeps1
